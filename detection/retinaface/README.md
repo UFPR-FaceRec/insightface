@@ -35,16 +35,16 @@ unzip model/retinaface-R50.zip -d model/retinaface-R50
 
 ### Run face detection script
 ```
-python detect_crop_faces_retinaface_OpensetFDIC_IJCB2024.py --input_path /datasets2/3rd_OpensetFDIC_IJCB2024/validation_images
+python detect_align_crop_faces_from_images.py --input_path /path/to/dataset/YouTubeFaces/aligned_images_DB --save_crops --align_face
 ```
 - The following directory will be created:
   ```
-  ├─ /datasets2
-      ├─ 3rd_OpensetFDIC_IJCB2024
-          ├─ validation_images_DETECTED_FACES_RETINAFACE_scales=[1.0]
-              ├─ imgs
-              ├─ txt
-              ├─ files_no_face_detected_thresh=0.01_starttime=2024-03-26_22-21-07.txt
+  /path/to/dataset
+     └── YouTubeFaces
+          └── aligned_images_DB_DETECTED_FACES_RETINAFACE_scales=[1.0]_nms=0.4
+               ├─ imgs
+               ├─ txt
+               ├─ files_no_face_detected_thresh=0.01_starttime=2024-03-26_22-21-07.txt
   
   ```
 
