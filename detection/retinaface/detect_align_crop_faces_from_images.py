@@ -18,7 +18,6 @@ import rawpy
 
 def getArgs():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--file_list', type=str, default='', help='')
     parser.add_argument('--input_path', type=str, default='/datasets2/3rd_OpensetFDIC_IJCB2024/validation_images', help='the dir your dataset of face which need to crop')
     parser.add_argument('--input_ext', type=str, default='jpg,png,jpeg,nef', help='jpg or png or jpeg or nef or jpg,png or jpg,png,jpeg')
     parser.add_argument('--output_path', type=str, default='', help='the dir the cropped faces of your dataset where to save')
@@ -200,7 +199,7 @@ def get_biggest_bbox(bbox, points):
 
 
 
-def crop_align_face(args):
+def align_crop_faces(args):
     input_dir = args.input_path.rstrip('/')
     if not os.path.exists(input_dir):
         print(f'The input path doesn\'t exists: {input_dir}')
@@ -238,12 +237,8 @@ def crop_align_face(args):
 
     ext = args.input_ext.split(',')
     all_img_paths = []
-    if args.file_list != '' and os.path.isfile(args.file_list):
-        print(f'\nLoading paths with pattern \'{args.str_pattern}\' from file \'{args.file_list}\' ...')
-        all_img_paths = get_all_paths_from_file(args.file_list, args.str_pattern)
-    elif os.path.isdir(input_dir):
-        print(f'\nSearching files {ext} with pattern \'{args.str_pattern}\' in path \'{input_dir}\' ...')
-        all_img_paths = get_all_files_in_path(input_dir, ext, args.str_pattern)    
+    print(f'\nSearching files {ext} with pattern \'{args.str_pattern}\' in path \'{input_dir}\' ...')
+    all_img_paths = get_all_files_in_path(input_dir, ext, args.str_pattern)  
 
     assert len(all_img_paths) > 0, f'No files found with extention \'{ext}\' and pattern \'{args.str_pattern}\' in input \'{input_dir}\''
     print(f'{len(all_img_paths)} files found')
@@ -379,4 +374,4 @@ def crop_align_face(args):
 
 if __name__ == '__main__':
     args = getArgs()
-    crop_align_face(args)
+    align_crop_faces(args)
