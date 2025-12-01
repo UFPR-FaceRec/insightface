@@ -12,6 +12,7 @@ cd insightface/detection/retinaface
 ENV=retinaface_py39
 conda env create -y --name $ENV --file environment.yml
 conda activate $ENV
+pip3 install gdown
 pip3 install -r requirements.txt
 ```
 
@@ -25,8 +26,9 @@ make
 
 - Save file [retinaface-R50.zip](https://drive.google.com/file/d/1_DKgGxQWqlTqe78pw0KavId9BIMNUWfu/view?usp=sharing) to folder `retinaface/model`
 ```
-cd retinaface/model
-unzip retinaface/model/retinaface-R50.zip -d retinaface/model/retinaface-R50
+cd insightface/detection/retinaface
+gdown 1_DKgGxQWqlTqe78pw0KavId9BIMNUWfu --output ./model/retinaface-R50.zip
+unzip model/retinaface-R50.zip -d model/retinaface-R50
 ```
 
 ### Run face detection script
