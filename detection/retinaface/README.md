@@ -35,12 +35,13 @@ unzip model/retinaface-R50.zip -d model/retinaface-R50
 
 ### Run face detection script
 ```
-python detect_align_crop_faces_from_images.py --input_path /path/to/dataset/YouTubeFaces/aligned_images_DB --save_crops --align_face
+python detect_align_crop_faces_from_images.py --save_crops --align_face --input_path /path/to/dataset/YouTubeFaces/aligned_images_DB
 ```
 - The following directory will be created:
   ```
   /path/to/dataset
      └── YouTubeFaces
+          ├── aligned_images_DB
           └── aligned_images_DB_DETECTED_FACES_RETINAFACE_scales=[1.0]_nms=0.4
                ├─ imgs
                ├─ txt
