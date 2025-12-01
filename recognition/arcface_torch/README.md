@@ -22,7 +22,7 @@ conda install cudatoolkit=11.3.1 -c conda-forge --yes
 
 #### Clone repository
 ```
-git clone https://github.com/biesseck/insightface.git
+git clone https://github.com/UFPR-FaceRec/insightface.git
 cd recognition/arcface_torch
 ```
 
@@ -34,7 +34,7 @@ conda activate $ENV_NAME
 
 pip3 install numpy==1.21.6
 pip3 install torch==1.10.1 torchvision==0.11.2 --extra-index-url https://download.pytorch.org/whl/cu113
-pip3 install -r requirement_bjgbiesseck.txt
+pip3 install -r requirement_ufpr_facerec.txt
 ```
 
 ---
