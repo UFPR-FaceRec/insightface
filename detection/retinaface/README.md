@@ -17,7 +17,7 @@ pip3 install -r requirements.txt
 
 ### Compile RCNN
 ```
-cd retinaface
+cd insightface/detection/retinaface
 make
 ```
 
