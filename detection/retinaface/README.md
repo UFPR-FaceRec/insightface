@@ -3,6 +3,7 @@
 ### Main requirements
 - Python 3.9
 - CUDA 11.2
+- GLIBCXX 3.4.32
 
 ### Config environment
 ```
@@ -13,7 +14,6 @@ ENV=retinaface_py39
 conda env create -y --name $ENV --file environment.yml
 conda activate $ENV
 conda install -c conda-forge libstdcxx-ng=13 --yes
-export LD_LIBRARY_PATH=$CONDA_PREFIX/lib:$LD_LIBRARY_PATH
 conda env config vars set LD_LIBRARY_PATH=$CONDA_PREFIX/lib:$LD_LIBRARY_PATH; conda deactivate; conda activate $ENV
 pip3 install -r requirements.txt
 ```
