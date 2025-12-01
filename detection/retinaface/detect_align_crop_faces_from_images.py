@@ -1,11 +1,5 @@
-# Dataset BUPT-BalancedFace
-# python detect_crop_faces_retinaface_OpensetFDIC_IJCB2024.py --input_path /datasets2/frcsyn_wacv2024/datasets/real/3_BUPT-BalancedFace/race_per_7000 --output_path /datasets2/frcsyn_wacv2024/datasets/real/3_BUPT-BalancedFace/race_per_7000_112x112 --thresh 0.8 --scales [0.5]
-
-# Dataset FFHQ
-# python detect_crop_faces_retinaface_OpensetFDIC_IJCB2024.py --input_path /datasets2/frcsyn_wacv2024/datasets/real/2_FFHQ/images1024x1024 --output_path /datasets2/frcsyn_wacv2024/datasets/real/2_FFHQ/images_crops_112x112 --thresh 0.8 --scales [0.5]
-
-# Dataset AgeDB
-# python detect_crop_faces_retinaface_OpensetFDIC_IJCB2024.py --input_path /datasets2/frcsyn_wacv2024/datasets/real/4_AgeDB/03_Protocol_Images --output_path /datasets2/frcsyn_wacv2024/datasets/real/4_AgeDB/03_Protocol_Images_crops_112x112 --thresh 0.5 --scales [1.0]
+# Dataset YouTubeFaces
+# python detect_align_crop_faces_from_images.py --input_path /hddevice/nobackup3/bjgbiesseck/datasets/face_recognition/YouTubeFaces/frame_images_DB --thresh 0.3 --save_crops --align_face
 
 import os
 import sys
