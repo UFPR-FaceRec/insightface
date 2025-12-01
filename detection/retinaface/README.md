@@ -12,8 +12,7 @@ cd insightface/detection/retinaface
 ENV=retinaface_py39
 conda env create -y --name $ENV --file environment.yml
 conda activate $ENV
-pip3 install gdown
-# pip3 install -r requirements.txt
+pip3 install -r requirements.txt
 ```
 
 ### Compile RCNN
