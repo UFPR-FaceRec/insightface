@@ -6,10 +6,10 @@
 
 ### Config environment
 ```
-git clone https://github.com/biesseck/OpensetFDIC_IJCB2024_utils.git
-cd OpensetFDIC_IJCB2024_utils
+git clone https://github.com/UFPR-FaceRec/insightface.git
+cd insightface/detection/retinaface
 
-ENV=BOVIFOCR_OpensetFDIC_IJCB2024
+ENV=UFPR_FaceRec_retinaface
 conda env create -y --name $ENV --file environment.yml
 conda activate $ENV
 pip3 install -r requirements.txt
@@ -43,11 +43,6 @@ python detect_crop_faces_retinaface_OpensetFDIC_IJCB2024.py --input_path /datase
               ├─ files_no_face_detected_thresh=0.01_starttime=2024-03-26_22-21-07.txt
   
   ```
-
-### Merge individual detections into one unified file
-```
-python merge_face_detections_OpensetFDIC_IJCB2024.py --input_path /datasets2/3rd_OpensetFDIC_IJCB2024/validation_images_DETECTED_FACES_RETINAFACE_scales=[1.0]/txt
-```
 
 <br><br><br><br><br><br><br>
 
