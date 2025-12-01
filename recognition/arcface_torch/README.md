@@ -1,4 +1,49 @@
-# Distributed Arcface Training in Pytorch
+# [UFPR-FaceRec]
+
+#### REQUIREMENTS:
+ - Python 3.7
+ - CUDA 11.3
+ - numpy==1.21.6
+ - torch==1.10.1
+ - torchvision==0.11.2
+
+#### Install CUDA
+```
+# system level
+wget https://developer.download.nvidia.com/compute/cuda/11.3.0/local_installers/cuda_11.3.0_465.19.01_linux.run
+sudo sh cuda_11.3.0_465.19.01_linux.run
+export CUDA_HOME=/usr/local/cuda-11.3
+
+or
+
+# env level
+conda install cudatoolkit=11.3.1 -c conda-forge --yes
+```
+
+#### Clone repository
+```
+git clone https://github.com/biesseck/insightface.git
+cd recognition/arcface_torch
+```
+
+#### Create env and install dependencies
+```
+ENV_NAME=insightface_py37
+conda create --name $ENV_NAME python=3.7 --yes
+conda activate $ENV_NAME
+
+pip3 install numpy==1.21.6
+pip3 install torch==1.10.1 torchvision==0.11.2 --extra-index-url https://download.pytorch.org/whl/cu113
+pip3 install -r requirement_bjgbiesseck.txt
+```
+
+---
+
+<br><br><br><br><br><br><br>
+
+
+
+# [Original] Distributed Arcface Training in Pytorch
 
 The "arcface_torch" repository is the official implementation of the ArcFace algorithm. It supports distributed and sparse training with multiple distributed training examples, including several memory-saving techniques such as mixed precision training and gradient checkpointing. It also supports training for ViT models and datasets including WebFace42M and Glint360K, two of the largest open-source datasets. Additionally, the repository comes with a built-in tool for converting to ONNX format, making it easy to submit to MFR evaluation systems.
 
