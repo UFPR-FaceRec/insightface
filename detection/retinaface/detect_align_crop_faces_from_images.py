@@ -1,5 +1,5 @@
 # Dataset YouTubeFaces
-# python detect_align_crop_faces_from_images.py --input_path /hddevice/nobackup3/bjgbiesseck/datasets/face_recognition/YouTubeFaces/frame_images_DB --thresh 0.3 --save_crops --align_face
+# python detect_align_crop_faces_from_images.py --save_crops --align_face --input_path /hddevice/nobackup3/bjgbiesseck/datasets/face_recognition/YouTubeFaces/aligned_images_DB
 
 import os
 import sys
@@ -18,19 +18,19 @@ import rawpy
 
 def getArgs():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--input_path', type=str, default='/datasets2/3rd_OpensetFDIC_IJCB2024/validation_images', help='the dir your dataset of face which need to crop')
+    parser.add_argument('--input_path', type=str, default='/hddevice/nobackup3/bjgbiesseck/datasets/face_recognition/YouTubeFaces/aligned_images_DB', help='the dir your dataset of face which need to crop')
     parser.add_argument('--input_ext', type=str, default='jpg,png,jpeg,nef', help='jpg or png or jpeg or nef or jpg,png or jpg,png,jpeg')
     parser.add_argument('--output_path', type=str, default='', help='the dir the cropped faces of your dataset where to save')
     parser.add_argument('--gpu', default=-1, type=int, help='gpu id， when the id == -1, use cpu')
     parser.add_argument('--face_size', type=int, default=112, help='the size of the face to save, the size x%2==0, and width equal height')
-    parser.add_argument('--thresh', type=float, default=0.01, help='threshold for face detection')
+    parser.add_argument('--thresh', type=float, default=0.3, help='threshold for face detection')
     parser.add_argument('--nms', type=float, default=0.4, help='Non-Maximum Suppression')
     parser.add_argument('--scales', type=str, default='[1.0]', help='the scale to resize image before detecting face')
-    parser.add_argument('--draw_bbox_lmk_save_whole_img', action='store_true', help='')
     parser.add_argument('--save_crops', action='store_true', help='')
     parser.add_argument('--process_only_biggest_face', action='store_true', help='')
     parser.add_argument('--align_face', action='store_true', help='')
     parser.add_argument('--force_lmk', action='store_true', help='')
+    parser.add_argument('--draw_bbox_lmk_save_whole_img', action='store_true', help='')
 
     parser.add_argument('--str_begin', default='', type=str, help='Substring to find and start processing')
     parser.add_argument('--str_end', default='', type=str, help='Substring to find and stop processing')
@@ -95,17 +95,6 @@ def get_all_files_in_path(folder_path, file_extension=['.jpg','.png'], pattern='
     print('')
     file_list.sort()
     return file_list
-
-
-def get_all_paths_from_file(file_path, pattern=''):
-    with open(file_path, 'r') as file:
-        all_lines = [line.strip() for line in file.readlines()]
-        valid_lines = []
-        for i, line in enumerate(all_lines):
-            if pattern in line:
-                valid_lines.append(line)
-        valid_lines.sort()
-        return valid_lines
 
 
 def add_string_end_file(file_path, string_to_add):
@@ -271,6 +260,7 @@ def align_crop_faces(args):
     print('------------------------\n')
 
     img_paths_part = img_paths_part[begin_index_str:end_index_str]
+    total_time = 0.0
     for i, input_path_path in enumerate(img_paths_part):
         start_time = time.time()
         print(f'divs: {args.div}    part: {args.part}    files: {len(img_paths_part)}')
@@ -278,7 +268,6 @@ def align_crop_faces(args):
         print(f'  end_parts: {end_parts}')
 
         print(f'Img {i+1}/{len(img_paths_part)} - Reading {input_path_path} ...')
-        # face_img = cv2.imread(input_path_path)
         if input_path_path.endswith('.nef'):
             raw_img = rawpy.imread(input_path_path)
             face_img = raw_img.postprocess()
@@ -325,7 +314,6 @@ def align_crop_faces(args):
             else:
                 face = crop_resize_face(face_img, bbox_, args.face_size)
 
-            # face_name = '%s.png'%(file_name.split('.')[0])
             output_path_path = input_path_path.replace(input_dir, output_imgs)
             face_name = output_path_path.split('/')[-1].split('.')[0] + \
                         f'_bbox{str(bbox_idx).zfill(2)}' + \
@@ -358,8 +346,14 @@ def align_crop_faces(args):
 
 
         elapsed_time = time.time() - start_time
-        print(f'Elapsed time: {elapsed_time} seconds')
-        print(f'{count_no_find_face} images without faces (paths saved in \'{path_file_no_face_detected}\')')
+        total_time += elapsed_time
+        avg_time = total_time/(i+1)
+        remain_time = avg_time * (len(img_paths_part)-i+1)
+        print(f'  Elapsed time: {elapsed_time:.4f} sec')
+        print(f'  Avg time: {avg_time:.4f} sec')
+        print(f'  Total time: {total_time:.4f} sec    {total_time/60:.4f} min    {total_time/3600:.4f} hour')
+        print(f'  Remaining time: {remain_time:.4f} sec    {remain_time/60:.4f} min    {remain_time/3600:.4f} hour')
+        print(f'  Num images without faces: {count_no_find_face} (paths saved in \'{path_file_no_face_detected}\')')
         print('-------------')
 
         count_crop_images += 1
