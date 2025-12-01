@@ -9,7 +9,7 @@
 git clone https://github.com/UFPR-FaceRec/insightface.git
 cd insightface/detection/retinaface
 
-ENV=UFPR_FaceRec_retinaface
+ENV=retinaface_py39
 conda env create -y --name $ENV --file environment.yml
 conda activate $ENV
 pip3 install -r requirements.txt
