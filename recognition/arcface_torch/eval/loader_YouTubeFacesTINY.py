@@ -39,7 +39,7 @@ def get_all_files_in_path(folder_path, file_extension=['.jpg','.jpeg','.png'], p
     return file_list
 
 
-class Loader_YouTubeFaces:
+class Loader_YouTubeFacesTINY:
     def __init__(self):
         pass
 

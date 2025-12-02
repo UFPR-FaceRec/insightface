@@ -19,15 +19,14 @@ from sklearn.model_selection import KFold
 sys.path.insert(0, "../")
 from backbones import get_model
 
-from loader_YouTubeFaces import Loader_YouTubeFaces
+from eval.loader_YouTubeFacesTINY import Loader_YouTubeFacesTINY
 
 
 def parse_arguments():
     parser = argparse.ArgumentParser(description='do verification')
-    parser.add_argument('--data-dir', default='../examples/YouTubeFaces/aligned_images_DB_TINY_DETECTED_FACES_RETINAFACE_scales=[1.0]_nms=0.4', help='')
+    parser.add_argument('--data-dir', default='../examples/YouTubeFaces_TINY/aligned_images_DB_TINY_DETECTED_FACES_RETINAFACE_scales=[1.0]_nms=0.4', help='')
     parser.add_argument('--network', default='r100', type=str, help='')
     parser.add_argument('--model', default='../trained_models/ms1mv3_arcface_r100_fp16/backbone.pth', help='path to load model.')
-    parser.add_argument('--target', default='YouTubeFaces', help='test targets.')
     parser.add_argument('--gpu', default=0, type=int, help='gpu id')
     parser.add_argument('--batch-size', default=32, type=int, help='')
     parser.add_argument('--nfolds', default=10, type=int, help='')
@@ -276,11 +275,10 @@ def test(data_set, backbone, batch_size, nfolds=10):
 
 if __name__ == '__main__':
     args = parse_arguments()
-    image_size = [112, 112]
-    print('image_size', image_size)
 
 
-    # LOADING MODEL WITH PYTORCH
+    # Load pytorch model
+    assert os.path.isfile(args.model), f"Error, no such model file: \'{args.model}\'"
     nets = []
     time0 = datetime.datetime.now()
     print(f'Loading trained model \'{args.model}\'...')
@@ -295,16 +293,20 @@ if __name__ == '__main__':
     print('model loading time', diff.total_seconds(), 'seconds')
 
 
+    # Load dataset
+    assert os.path.exists(args.data_dir), f"Error, no such dataset dir: \'{args.data_dir}\'"
     ver_list = []
     ver_name_list = []
-    if os.path.exists(args.data_dir):
-        if 'YouTubeFaces' in args.data_dir:
-            print('Loading \'YouTubeFaces\' dataset...')
-            dataset = Loader_YouTubeFaces().load_dataset(args.data_dir, image_size)
-            ver_list.append(dataset)
-            ver_name_list.append('YouTubeFaces')
+    image_size = [112, 112]
+    print('image_size', image_size)
+    if 'YouTubeFaces_TINY' in args.data_dir:
+        print('Loading \'YouTubeFaces_TINY\' dataset...')
+        dataset = Loader_YouTubeFacesTINY().load_dataset(args.data_dir, image_size)
+        ver_list.append(dataset)
+        ver_name_list.append('YouTubeFaces_TINY')
 
 
+    # Do verification
     for i in range(len(ver_list)):
         results = []
         for model in nets:
