@@ -219,3 +219,5 @@ __marimo__/
 # UFPR-FaceRec
 rcnn/*
 model/*
+examples/Aaron_Eckhart/*.jpg
+examples/Aaron_Eckhart/*.png
