@@ -37,7 +37,7 @@ pip3 install torch==1.10.1 torchvision==0.11.2 --extra-index-url https://downloa
 pip3 install -r requirement_ufpr_facerec.txt
 ```
 
-#### Test simple recognition
+#### Test simple face recognition
 
 - Download the trained model ResNet100/ArcFace `ms1mv3_arcface_r100_fp16/backbone.pth` from [OneDrive](https://1drv.ms/u/s!AswpsDO2toNKq0lWY69vN58GR6mw?e=p9Ov5d) and save it to subfolder `trained_models/ms1mv3_arcface_r100_fp16`
 ![Instructions to download ms1mv3_arcface_r100_fp16/backbone.pth](examples/download_instructions.png "Download ms1mv3_arcface_r100_fp16/backbone.pth")
