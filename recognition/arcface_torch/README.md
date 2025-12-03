@@ -23,7 +23,7 @@ conda install cudatoolkit=11.3.1 -c conda-forge --yes
 #### Clone repository
 ```
 git clone https://github.com/UFPR-FaceRec/insightface.git
-cd recognition/arcface_torch
+cd insightface/recognition/arcface_torch
 ```
 
 #### Create env and install dependencies
@@ -39,9 +39,11 @@ pip3 install -r requirement_ufpr_facerec.txt
 
 #### Test simple recognition
 
-Download trained model Resnet100...
+- Download the trained model ResNet100/ArcFace `ms1mv3_arcface_r100_fp16/backbone.pth` from [OneDrive](https://1drv.ms/u/s!AswpsDO2toNKq0lWY69vN58GR6mw?e=p9Ov5d) and save it to subfolder `trained_models/ms1mv3_arcface_r100_fp16`
+![Instructions to download ms1mv3_arcface_r100_fp16/backbone.pth](examples/download_instructions.png "Download ms1mv3_arcface_r100_fp16/backbone.pth")
 
-![Alt text](examples/verification_pipeline.png "Optional title")
+
+- Run `test_UFPR_FaceRec.py`
 
 ```
 cd recognition/arcface_torch
@@ -60,6 +62,8 @@ Computing embeddings
 Similarity: 0.6534208
 Same person!
 ```
+
+![Verification pipeline](examples/verification_pipeline.png "Verification pipeline")
 
 ---
 
