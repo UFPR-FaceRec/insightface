@@ -37,6 +37,9 @@ unzip model/retinaface-R50.zip -d model/retinaface-R50
 ```
 python detect_align_crop_faces_from_images.py --save_crops --align_face --input_path /path/to/dataset/YouTubeFaces/aligned_images_DB
 ```
+
+![Detection pipeline](examples/detection_pipeline.png "Detection pipeline")
+
 - The following directory will be created:
   ```
   /path/to/dataset
