@@ -37,6 +37,30 @@ pip3 install torch==1.10.1 torchvision==0.11.2 --extra-index-url https://downloa
 pip3 install -r requirement_ufpr_facerec.txt
 ```
 
+#### Test simple recognition
+
+Download trained model Resnet100...
+
+![Alt text](examples/verification_pipeline.png "Optional title")
+
+```
+cd recognition/arcface_torch
+python test_UFPR_FaceRec.py --network r100 --model trained_models/ms1mv3_arcface_r100_fp16/backbone.pth --img1 examples/Aaron_Eckhart/0.png --img2 examples/Aaron_Eckhart/1.png
+
+OUTPUT:
+Loading model r100: 'trained_models/ms1mv3_arcface_r100_fp16/backbone.pth'
+Loading img1 'examples/Aaron_Eckhart/0.png'
+    img1.shape: torch.Size([3, 112, 112])
+Loading img2 'examples/Aaron_Eckhart/1.png'
+    img2.shape: torch.Size([3, 112, 112])
+Making batch
+    batch.shape: torch.Size([2, 3, 112, 112])
+Computing embeddings
+    embeddings.shape: (2, 512)
+Similarity: 0.6534208
+Same person!
+```
+
 ---
 
 <br><br><br><br><br><br><br>
