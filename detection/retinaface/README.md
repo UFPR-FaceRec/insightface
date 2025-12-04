@@ -2,8 +2,11 @@
 
 ### Main requirements
 - Python 3.9
-- CUDA 11.2
+- CUDA 11.0
+- cuDNN 8.0.5
+- nccl 2.12
 - GLIBCXX 3.4.32
+- mxnet-cu110 1.9.1
 
 ### Config environment
 ```
@@ -13,7 +16,7 @@ cd insightface/detection/retinaface
 ENV=retinaface_py39
 conda env create -y --name $ENV --file environment.yml
 conda activate $ENV
-conda install -c conda-forge libstdcxx-ng=13 --yes
+conda install -c conda-forge cudatoolkit=11.0 cudnn==8.0.5.39 nccl==2.12.12.1 libstdcxx-ng=13 --yes
 conda env config vars set LD_LIBRARY_PATH=$CONDA_PREFIX/lib:$LD_LIBRARY_PATH; conda deactivate; conda activate $ENV
 pip3 install -r requirements.txt
 ```
