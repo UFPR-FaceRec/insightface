@@ -19,7 +19,7 @@ flip = False
 count = 1
 
 gpuid = 0
-gpuid = -1    # -1 == CPU
+# gpuid = -1    # -1 == CPU
 detector = RetinaFace('./model/retinaface-R50/R50', 0, gpuid, 'net3')
 
 img = cv2.imread(args.img)
