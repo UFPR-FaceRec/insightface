@@ -220,3 +220,4 @@ __marimo__/
 *.swp
 wandb/*
 work_dirs*/*
+trained_models/*
