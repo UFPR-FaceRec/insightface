@@ -18,7 +18,7 @@ conda env create -y --name $ENV --file environment.yml
 conda activate $ENV
 conda install -c conda-forge cudatoolkit=11.0 cudnn==8.0.5.39 nccl==2.12.12.1 libstdcxx-ng=13 --yes
 conda env config vars set LD_LIBRARY_PATH=$CONDA_PREFIX/lib:$LD_LIBRARY_PATH; conda deactivate; conda activate $ENV
-pip3 install -r requirements.txt
+pip3 install -r requirements_UFPR_FaceRec.txt
 ```
 
 ### Compile RCNN
