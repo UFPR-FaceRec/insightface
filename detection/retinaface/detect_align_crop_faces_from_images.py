@@ -315,7 +315,7 @@ def align_crop_faces(args):
                 face = crop_resize_face(face_img, bbox_, args.face_size)
 
             output_path_path = input_path_path.replace(input_dir, output_imgs)
-            face_name = output_path_path.split('/')[-1].split('.')[0] + \
+            face_name = os.path.splitext(output_path_path.split('/')[-1])[0] + \
                         f'_bbox{str(bbox_idx).zfill(2)}' + \
                         f'_conf{conf_}' + '.png'
             output_path_path = os.path.join(os.path.dirname(output_path_path), face_name)
@@ -324,7 +324,7 @@ def align_crop_faces(args):
             if args.draw_bbox_lmk_save_whole_img:
                 face_img_copy = draw_bbox(face_img_copy, bbox_)
                 face_img_copy = draw_lmks(face_img_copy, points_)
-                face_name = '%s_all_bboxes.jpg'%(input_path_path.split('/')[-1].split('.')[0])
+                face_name = '%s_all_bboxes.jpg' % (os.path.splitext(input_path_path.split('/')[-1])[0])
                 file_path_bbox_save = os.path.join(os.path.dirname(output_path_path), face_name)
                 if bbox_idx == bbox.shape[0]-1:
                     print(f'Saving {file_path_bbox_save}')
