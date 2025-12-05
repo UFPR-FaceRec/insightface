@@ -19,7 +19,7 @@ from sklearn.model_selection import KFold
 sys.path.insert(0, "../")
 from backbones import get_model
 
-from eval.loader_YouTubeFacesTINY import Loader_YouTubeFacesTINY
+from eval.loader_YouTubeFaces import Loader_YouTubeFaces
 
 
 def parse_arguments():
@@ -299,9 +299,9 @@ if __name__ == '__main__':
     ver_name_list = []
     image_size = [112, 112]
     print('image_size', image_size)
-    if 'YouTubeFaces_TINY' in args.data_dir:
-        print('Loading \'YouTubeFaces_TINY\' dataset...')
-        dataset = Loader_YouTubeFacesTINY().load_dataset(args.data_dir, image_size, 'identification')
+    if 'YouTubeFaces' in args.data_dir:
+        print('Loading \'YouTubeFaces\' dataset...')
+        dataset = Loader_YouTubeFaces().load_dataset(args.data_dir, image_size, 'identification')
         ver_list.append(dataset)
         ver_name_list.append('YouTubeFaces_TINY')
 

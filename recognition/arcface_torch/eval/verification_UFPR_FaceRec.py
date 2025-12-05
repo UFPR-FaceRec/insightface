@@ -19,7 +19,7 @@ from sklearn.model_selection import KFold
 sys.path.insert(0, "../")
 from backbones import get_model
 
-from eval.loader_YouTubeFacesTINY import Loader_YouTubeFacesTINY
+from eval.loader_YouTubeFaces import Loader_YouTubeFaces
 
 
 def parse_arguments():

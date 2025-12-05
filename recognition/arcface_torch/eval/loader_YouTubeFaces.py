@@ -46,7 +46,7 @@ def get_tracks_files_in_path(folder_path, file_extension=['.jpg','.jpeg','.png']
 
 
 
-class Loader_YouTubeFacesTINY:
+class Loader_YouTubeFaces:
     def __init__(self):
         pass
 
@@ -95,6 +95,7 @@ class Loader_YouTubeFacesTINY:
         path_dir_gallery = f"{data_dir}/gallery"
         path_dir_probe   = f"{data_dir}/probe"
         subjs_list = list_immediate_subdirectories(path_dir_gallery)
+        print('num subjs:', len(subjs_list))
         subjs_labels = list(range(len(subjs_list)))
 
         if task == 'verification':
@@ -136,8 +137,14 @@ class Loader_YouTubeFacesTINY:
 
 
         elif task == 'identification':
-            dict_paths_gallery = {subj:get_all_files_in_path(f"{path_dir_gallery}/{subj}", file_extension=['.jpg','.jpeg','.png']) for subj in subjs_list}
-            dict_paths_tracks_probe = {subj:get_tracks_files_in_path(f"{path_dir_probe}/{subj}", file_extension=['.jpg','.jpeg','.png']) for subj in subjs_list}
+            # dict_paths_gallery = {subj:get_all_files_in_path(f"{path_dir_gallery}/{subj}", file_extension=['.jpg','.jpeg','.png']) for subj in subjs_list}
+            # dict_paths_tracks_probe = {subj:get_tracks_files_in_path(f"{path_dir_probe}/{subj}", file_extension=['.jpg','.jpeg','.png']) for subj in subjs_list}
+            dict_paths_gallery, dict_paths_tracks_probe = {}, {}
+            for idx_subj, subj in enumerate(subjs_list):
+                print(f"{idx_subj}/{len(subjs_list)} - Loading subj path \'{subj}\'                ", end="\r")
+                dict_paths_gallery[subj] = get_all_files_in_path(f"{path_dir_gallery}/{subj}", file_extension=['.jpg','.jpeg','.png'])
+                dict_paths_tracks_probe[subj] = get_tracks_files_in_path(f"{path_dir_probe}/{subj}", file_extension=['.jpg','.jpeg','.png'])
+            print()
 
             # Add labels to paths
             for subj_name, subj_label in zip(subjs_list, subjs_labels):
@@ -152,21 +159,24 @@ class Loader_YouTubeFacesTINY:
             data_gallery   = torch.empty(len(dict_paths_gallery), 3, image_size[0], image_size[1])
             labels_gallery = torch.empty(len(dict_paths_gallery), 1)
             for idx_subj, (subj_name, subj_label) in enumerate(zip(subjs_list, subjs_labels)):
+                print(f"{idx_subj}/{len(subjs_list)} - Loading gallery imgs \'{subj_name}\'                ", end="\r")
                 img = cv2.imread(dict_paths_gallery[subj_name][0][0])
                 img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
                 img = mx.nd.array(img)
                 img = nd.transpose(img, axes=(2, 0, 1))
                 data_gallery[idx_subj][:] = torch.from_numpy(img.asnumpy())
                 labels_gallery[idx_subj]  = subj_label
-            
+            print()
+
             # Load probe images 
             dict_data_probe   = {}
             dict_labels_probe = {}
-            for subj_name, subj_label in zip(subjs_list, subjs_labels):
+            for idx_subj, (subj_name, subj_label) in enumerate(zip(subjs_list, subjs_labels)):
                 for idx_track_name, track_name in enumerate(list(dict_paths_tracks_probe[subj_name].keys())):
                     data_track_probe     = torch.empty(len(dict_paths_tracks_probe[subj_name][track_name]), 3, image_size[0], image_size[1])
                     labels_track_gallery = torch.empty(len(dict_paths_tracks_probe[subj_name][track_name]), 1)
                     for idx_img_path, img_path in enumerate(dict_paths_tracks_probe[subj_name][track_name]):
+                        print(f"{idx_subj}/{len(subjs_list)} - Loading probe imgs \'{subj_name}\' - track {track_name} - img {idx_img_path}/{len(dict_paths_tracks_probe[subj_name][track_name])}                     ", end="\r")
                         img = cv2.imread(dict_paths_tracks_probe[subj_name][track_name][idx_img_path][0])
                         img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
                         img = mx.nd.array(img)
@@ -175,6 +185,7 @@ class Loader_YouTubeFacesTINY:
                         labels_track_gallery[idx_img_path] = subj_label
                     dict_data_probe[f"{subj_name}_{track_name}"] = data_track_probe
                     dict_labels_probe[f"{subj_name}_{track_name}"] = labels_track_gallery
+            print()
 
             # print('dict_data_probe.keys():', dict_data_probe.keys())
             # for key in dict_data_probe.keys():
