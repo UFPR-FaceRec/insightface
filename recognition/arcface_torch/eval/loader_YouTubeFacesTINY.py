@@ -39,6 +39,13 @@ def get_all_files_in_path(folder_path, file_extension=['.jpg','.jpeg','.png'], p
     return file_list
 
 
+def get_tracks_files_in_path(folder_path, file_extension=['.jpg','.jpeg','.png'], pattern=''):
+    tracks_dirs = list_immediate_subdirectories(folder_path)
+    dict_tracks_files = {track_name:get_all_files_in_path(f"{folder_path}/{track_name}", file_extension=file_extension) for track_name in tracks_dirs}
+    return dict_tracks_files
+
+
+
 class Loader_YouTubeFacesTINY:
     def __init__(self):
         pass
@@ -84,43 +91,94 @@ class Loader_YouTubeFacesTINY:
         return protocol
 
 
-    def load_dataset(self, data_dir='', image_size=[112,112]):
+    def load_dataset(self, data_dir='', image_size=[112,112], task='verification'):
         path_dir_gallery = f"{data_dir}/gallery"
         path_dir_probe   = f"{data_dir}/probe"
         subjs_list = list_immediate_subdirectories(path_dir_gallery)
+        subjs_labels = list(range(len(subjs_list)))
 
-        dict_paths_gallery = {subj:get_all_files_in_path(f"{path_dir_gallery}/{subj}", file_extension=['.jpg','.jpeg','.png']) for subj in subjs_list}
-        dict_paths_probe   = {subj:get_all_files_in_path(f"{path_dir_probe}/{subj}", file_extension=['.jpg','.jpeg','.png']) for subj in subjs_list}
+        if task == 'verification':
+            dict_paths_gallery = {subj:get_all_files_in_path(f"{path_dir_gallery}/{subj}", file_extension=['.jpg','.jpeg','.png']) for subj in subjs_list}
+            dict_paths_probe   = {subj:get_all_files_in_path(f"{path_dir_probe}/{subj}", file_extension=['.jpg','.jpeg','.png']) for subj in subjs_list}
 
-        pairs_orig = self.make_verification_protocol(dict_paths_gallery, dict_paths_probe)
+            pairs_orig = self.make_verification_protocol(dict_paths_gallery, dict_paths_probe)
 
-        # Load images
-        data_list = []
-        for flip in [0, 1]:
-            data = torch.empty((len(pairs_orig)*2, 3, image_size[0], image_size[1]))
-            data_list.append(data)
-
-        issame_list = np.array([bool(pairs_orig[i]['pair_label']) for i in range(len(pairs_orig))])
-
-        for idx in range(len(pairs_orig) * 2):
-            idx_pair = int(idx/2)
-            if idx % 2 == 0:
-                img_path = pairs_orig[idx_pair]['sample0']
-            else:
-                img_path = pairs_orig[idx_pair]['sample1']
-            assert os.path.isfile(img_path), f"Error, file not found: '{img_path}'"
-            img = cv2.imread(img_path)
-            img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-            img = mx.nd.array(img)
-
-            if img.shape[1] != image_size[0]:
-                img = mx.image.resize_short(img, image_size[0])
-            img = nd.transpose(img, axes=(2, 0, 1))
+            # Load images
+            data_list = []
             for flip in [0, 1]:
-                if flip == 1:
-                    img = mx.ndarray.flip(data=img, axis=2)
-                data_list[flip][idx][:] = torch.from_numpy(img.asnumpy())
-            if idx % 100 == 0:
-                print(f"loading pairs {idx}/{len(pairs_orig)*2}", end='\r')
-        print('\n    ', data_list[0].shape)
-        return (data_list, issame_list)
+                data = torch.empty((len(pairs_orig)*2, 3, image_size[0], image_size[1]))
+                data_list.append(data)
+
+            issame_list = np.array([bool(pairs_orig[i]['pair_label']) for i in range(len(pairs_orig))])
+
+            for idx in range(len(pairs_orig) * 2):
+                idx_pair = int(idx/2)
+                if idx % 2 == 0:
+                    img_path = pairs_orig[idx_pair]['sample0']
+                else:
+                    img_path = pairs_orig[idx_pair]['sample1']
+                assert os.path.isfile(img_path), f"Error, file not found: '{img_path}'"
+                img = cv2.imread(img_path)
+                img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+                img = mx.nd.array(img)
+
+                if img.shape[1] != image_size[0]:
+                    img = mx.image.resize_short(img, image_size[0])
+                img = nd.transpose(img, axes=(2, 0, 1))
+                for flip in [0, 1]:
+                    if flip == 1:
+                        img = mx.ndarray.flip(data=img, axis=2)
+                    data_list[flip][idx][:] = torch.from_numpy(img.asnumpy())
+                if idx % 100 == 0:
+                    print(f"loading pairs {idx}/{len(pairs_orig)*2}", end='\r')
+            print('\n    ', data_list[0].shape)
+            return (data_list, issame_list)
+
+
+        elif task == 'identification':
+            dict_paths_gallery = {subj:get_all_files_in_path(f"{path_dir_gallery}/{subj}", file_extension=['.jpg','.jpeg','.png']) for subj in subjs_list}
+            dict_paths_tracks_probe = {subj:get_tracks_files_in_path(f"{path_dir_probe}/{subj}", file_extension=['.jpg','.jpeg','.png']) for subj in subjs_list}
+
+            # Add labels to paths
+            for subj_name, subj_label in zip(subjs_list, subjs_labels):
+                for idx_img_path, img_path in enumerate(dict_paths_gallery[subj_name]):
+                    dict_paths_gallery[subj_name][idx_img_path] = [img_path, subj_label]
+            
+                for idx_track_name, track_name in enumerate(list(dict_paths_tracks_probe[subj_name].keys())):
+                    for idx_img_path, img_path in enumerate(dict_paths_tracks_probe[subj_name][track_name]):
+                        dict_paths_tracks_probe[subj_name][track_name][idx_img_path] = [img_path, subj_label]
+
+            # Load gallery images 
+            data_gallery   = torch.empty(len(dict_paths_gallery), 3, image_size[0], image_size[1])
+            labels_gallery = torch.empty(len(dict_paths_gallery), 1)
+            for idx_subj, (subj_name, subj_label) in enumerate(zip(subjs_list, subjs_labels)):
+                img = cv2.imread(dict_paths_gallery[subj_name][0][0])
+                img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+                img = mx.nd.array(img)
+                img = nd.transpose(img, axes=(2, 0, 1))
+                data_gallery[idx_subj][:] = torch.from_numpy(img.asnumpy())
+                labels_gallery[idx_subj]  = subj_label
+            
+            # Load probe images 
+            dict_data_probe   = {}
+            dict_labels_probe = {}
+            for subj_name, subj_label in zip(subjs_list, subjs_labels):
+                for idx_track_name, track_name in enumerate(list(dict_paths_tracks_probe[subj_name].keys())):
+                    data_track_probe     = torch.empty(len(dict_paths_tracks_probe[subj_name][track_name]), 3, image_size[0], image_size[1])
+                    labels_track_gallery = torch.empty(len(dict_paths_tracks_probe[subj_name][track_name]), 1)
+                    for idx_img_path, img_path in enumerate(dict_paths_tracks_probe[subj_name][track_name]):
+                        img = cv2.imread(dict_paths_tracks_probe[subj_name][track_name][idx_img_path][0])
+                        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+                        img = mx.nd.array(img)
+                        img = nd.transpose(img, axes=(2, 0, 1))
+                        data_track_probe[idx_img_path][:]  = torch.from_numpy(img.asnumpy())
+                        labels_track_gallery[idx_img_path] = subj_label
+                    dict_data_probe[f"{subj_name}_{track_name}"] = data_track_probe
+                    dict_labels_probe[f"{subj_name}_{track_name}"] = labels_track_gallery
+
+            # print('dict_data_probe.keys():', dict_data_probe.keys())
+            # for key in dict_data_probe.keys():
+            #     # print(f'dict_data_probe[{key}]:', dict_data_probe[key])
+            #     print(f'dict_data_probe[{key}].shape:', dict_data_probe[key].shape)
+            # sys.exit(0)
+            return data_gallery, labels_gallery, dict_data_probe, dict_labels_probe

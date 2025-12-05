@@ -24,7 +24,7 @@ from eval.loader_YouTubeFacesTINY import Loader_YouTubeFacesTINY
 
 def parse_arguments():
     parser = argparse.ArgumentParser(description='do verification')
-    parser.add_argument('--data-dir', default='../examples/YouTubeFaces_TINY/aligned_images_DB_TINY_DETECTED_FACES_RETINAFACE_scales=[1.0]_nms=0.4', help='')
+    parser.add_argument('--data-dir', default='../examples/YouTubeFaces_TINY/aligned_images_DB_DETECTED_FACES_RETINAFACE_scales=[1.0]_nms=0.4/imgs', help='')
     parser.add_argument('--network', default='r100', type=str, help='')
     parser.add_argument('--model', default='../trained_models/ms1mv3_arcface_r100_fp16/backbone.pth', help='path to load model.')
     parser.add_argument('--gpu', default=0, type=int, help='gpu id')
@@ -172,102 +172,102 @@ def calculate_val_far(threshold, dist, actual_issame):
     return val, far
 
 
-def evaluate(embeddings, actual_issame, nrof_folds=10, pca=0):
-    # Calculate evaluation metrics
-    thresholds = np.arange(0, 4, 0.01)
-    embeddings1 = embeddings[0::2]
-    embeddings2 = embeddings[1::2]
-    tpr, fpr, accuracy = calculate_roc(thresholds,
-                                       embeddings1,
-                                       embeddings2,
-                                       np.asarray(actual_issame),
-                                       nrof_folds=nrof_folds,
-                                       pca=pca)
-    thresholds = np.arange(0, 4, 0.001)
-    val, val_std, far = calculate_val(thresholds,
-                                      embeddings1,
-                                      embeddings2,
-                                      np.asarray(actual_issame),
-                                      1e-3,
-                                      nrof_folds=nrof_folds)
-    return tpr, fpr, accuracy, val, val_std, far
+def evaluate_identification_majority_voting(dict_pred_labels_probe, dict_true_labels_probe):
+    num_tracks = int(len(dict_pred_labels_probe))
+    num_hit_rank1, num_miss_rank1 = 0, 0
+    for subj_track in list(dict_pred_labels_probe.keys()):
+        counts_pred_label = np.bincount(dict_pred_labels_probe[subj_track])
+        majority_voting_track_pred_label = np.argmax(counts_pred_label)
+
+        counts_true_label = np.bincount(np.squeeze(dict_true_labels_probe[subj_track]))
+        majority_voting_track_true_label = np.argmax(counts_true_label)
+        
+        if majority_voting_track_pred_label == majority_voting_track_true_label:
+            num_hit_rank1 += 1
+        else:
+            num_miss_rank1 += 1
+  
+    acc_rank1 = num_hit_rank1 / num_tracks
+    return acc_rank1
+
+
+def evaluate_identification_indiv_samples(dict_pred_labels_probe, dict_true_labels_probe):
+    num_frames = sum([len(dict_pred_labels_probe[subj_track]) for subj_track in dict_pred_labels_probe.keys()])
+    num_hit_rank1, num_miss_rank1 = 0, 0
+    for subj_track in list(dict_pred_labels_probe.keys()):
+        # print(f'dict_pred_labels_probe[{subj_track}].shape:', dict_pred_labels_probe[subj_track].shape)
+        # print(f'np.squeeze(dict_true_labels_probe[{subj_track}].shape:', np.squeeze(dict_true_labels_probe[subj_track]).shape)
+        comparison_bool = dict_pred_labels_probe[subj_track] == np.squeeze(dict_true_labels_probe[subj_track].detach().cpu().numpy())
+        # print('comparison_bool:', comparison_bool)
+        # print('sum(comparison_bool):', sum(comparison_bool))
+        num_hit_rank1  += sum(comparison_bool)
+        num_miss_rank1 += sum(~comparison_bool)
+        # print('num_hit_rank1:', num_hit_rank1)
+        # print('num_miss_rank1:', num_miss_rank1)
+        # sys.exit(0)
+            
+  
+    acc_indiv_samples_rank1 = num_hit_rank1 / num_frames
+    return acc_indiv_samples_rank1
+
+
+def compute_similarities(A, B):
+    norm_A = np.linalg.norm(A, axis=1, keepdims=True)
+    norm_A[norm_A == 0] = 1.0 
+    A_normalized = A / norm_A
+
+    norm_B = np.linalg.norm(B, axis=1, keepdims=True)
+    norm_B[norm_B == 0] = 1.0
+    B_normalized = B / norm_B
+    
+    similarity_matrix = A_normalized @ B_normalized.T
+    return similarity_matrix
+
 
 @torch.no_grad()
-def load_bin(path, image_size):
-    try:
-        with open(path, 'rb') as f:
-            bins, issame_list = pickle.load(f)  # py2
-    except UnicodeDecodeError as e:
-        with open(path, 'rb') as f:
-            bins, issame_list = pickle.load(f, encoding='bytes')  # py3
-    data_list = []
-    for flip in [0, 1]:
-        data = torch.empty((len(issame_list) * 2, 3, image_size[0], image_size[1]))
-        data_list.append(data)
-    for idx in range(len(issame_list) * 2):
-        _bin = bins[idx]
-        img = mx.image.imdecode(_bin)
-        if img.shape[1] != image_size[0]:
-            img = mx.image.resize_short(img, image_size[0])
-        img = nd.transpose(img, axes=(2, 0, 1))
-        for flip in [0, 1]:
-            if flip == 1:
-                img = mx.ndarray.flip(data=img, axis=2)
-            data_list[flip][idx][:] = torch.from_numpy(img.asnumpy())
-        if idx % 1000 == 0:
-            print('loading bin', idx)
-    print(data_list[0].shape)
-    return data_list, issame_list
+def compute_embeddings(data, backbone, batch_size):
+    embeddings = None
+    ba = 0
+    while ba < data.shape[0]:
+        bb = min(ba + batch_size, data.shape[0])
+        _data = data[ba:bb, :]
+        img = ((_data / 255) - 0.5) / 0.5
+        net_out: torch.Tensor = backbone(img)
+        _embeddings = net_out.detach().cpu().numpy()
+        if embeddings is None:
+            embeddings = np.zeros((data.shape[0], _embeddings.shape[1]))
+        embeddings[ba:bb, :] = _embeddings
+        ba = bb
+    return embeddings
+
 
 @torch.no_grad()
-def test(data_set, backbone, batch_size, nfolds=10):
-    print('testing verification..')
-    data_list = data_set[0]
-    issame_list = data_set[1]
-    embeddings_list = []
-    time_consumed = 0.0
-    for i in range(len(data_list)):
-        data = data_list[i]
-        embeddings = None
-        ba = 0
-        while ba < data.shape[0]:
-            bb = min(ba + batch_size, data.shape[0])
-            count = bb - ba
-            _data = data[bb - batch_size: bb]
-            time0 = datetime.datetime.now()
-            img = ((_data / 255) - 0.5) / 0.5
-            net_out: torch.Tensor = backbone(img)
-            _embeddings = net_out.detach().cpu().numpy()
-            time_now = datetime.datetime.now()
-            diff = time_now - time0
-            time_consumed += diff.total_seconds()
-            if embeddings is None:
-                embeddings = np.zeros((data.shape[0], _embeddings.shape[1]))
-            embeddings[ba:bb, :] = _embeddings[(batch_size - count):, :]
-            ba = bb
-        embeddings_list.append(embeddings)
+def test_identification(data_set, backbone, batch_size, nfolds=10):
+    print('testing identification...')
+    data_gallery           = data_set[0]
+    true_labels_gallery    = data_set[1]
+    dict_data_probe        = data_set[2]
+    dict_true_labels_probe = data_set[3]
 
-    _xnorm = 0.0
-    _xnorm_cnt = 0
-    for embed in embeddings_list:
-        for i in range(embed.shape[0]):
-            _em = embed[i]
-            _norm = np.linalg.norm(_em)
-            _xnorm += _norm
-            _xnorm_cnt += 1
-    _xnorm /= _xnorm_cnt
+    embeddings_gallery = compute_embeddings(data_gallery, backbone, batch_size)
+    embeddings_gallery = sklearn.preprocessing.normalize(embeddings_gallery)
 
-    embeddings = embeddings_list[0].copy()
-    embeddings = sklearn.preprocessing.normalize(embeddings)
-    acc1 = 0.0
-    std1 = 0.0
-    embeddings = embeddings_list[0] + embeddings_list[1]
-    embeddings = sklearn.preprocessing.normalize(embeddings)
-    print(embeddings.shape)
-    print('infer time', time_consumed)
-    _, _, accuracy, val, val_std, far = evaluate(embeddings, issame_list, nrof_folds=nfolds)
-    acc2, std2 = np.mean(accuracy), np.std(accuracy)
-    return acc1, std1, acc2, std2, val, val_std, far, _xnorm, embeddings_list
+    dict_embeddings_probe = {}
+    for subj_track in list(dict_data_probe.keys()):
+        embeddings_probe = compute_embeddings(dict_data_probe[subj_track], backbone, batch_size)
+        dict_embeddings_probe[subj_track] = embeddings_probe
+
+    dict_similarities_probe = {}
+    dict_pred_labels_probe = {}
+    for subj_track in list(dict_data_probe.keys()):
+        similarities_probe = compute_similarities(dict_embeddings_probe[subj_track], embeddings_gallery)
+        dict_similarities_probe[subj_track] = similarities_probe
+        track_pred_labels = np.argmax(similarities_probe, axis=1)
+        dict_pred_labels_probe[subj_track] = track_pred_labels
+    
+    acc_rank1_major_voting = evaluate_identification_majority_voting(dict_pred_labels_probe, dict_true_labels_probe)
+    acc_rank1_indiv_samples = evaluate_identification_indiv_samples(dict_pred_labels_probe, dict_true_labels_probe)
+    return acc_rank1_major_voting, acc_rank1_indiv_samples
 
 
 
@@ -301,7 +301,7 @@ if __name__ == '__main__':
     print('image_size', image_size)
     if 'YouTubeFaces_TINY' in args.data_dir:
         print('Loading \'YouTubeFaces_TINY\' dataset...')
-        dataset = Loader_YouTubeFacesTINY().load_dataset(args.data_dir, image_size, 'verification')
+        dataset = Loader_YouTubeFacesTINY().load_dataset(args.data_dir, image_size, 'identification')
         ver_list.append(dataset)
         ver_name_list.append('YouTubeFaces_TINY')
 
@@ -310,6 +310,7 @@ if __name__ == '__main__':
     for i in range(len(ver_list)):
         results = []
         for model in nets:
-            acc1, std1, acc2, std2, val, val_std, far, xnorm, embeddings_list = test(ver_list[i], model, args.batch_size, args.nfolds)
-            print('[%s] Accuracy-Flip: %1.5f+-%1.5f' % (ver_name_list[i], acc2, std2))
-            print('[%s] TAR: %1.5f+-%1.5f (@FAR=%1.5f)' % (ver_name_list[i], val, val_std, far))
+            acc_rank1_major_voting, acc_rank1_indiv_samples = test_identification(ver_list[i], model, args.batch_size, args.nfolds)
+            print('[%s] Accuracy-Majority-Voting-Rank1: %1.5f' % (ver_name_list[i], acc_rank1_major_voting))
+            print('[%s] Accuracy-Individ-Samples-Rank1: %1.5f' % (ver_name_list[i], acc_rank1_indiv_samples))
+
