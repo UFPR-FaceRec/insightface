@@ -299,11 +299,11 @@ if __name__ == '__main__':
     ver_name_list = []
     image_size = [112, 112]
     print('image_size', image_size)
-    if 'YouTubeFaces_TINY' in args.data_dir:
-        print('Loading \'YouTubeFaces_TINY\' dataset...')
-        dataset = Loader_YouTubeFacesTINY().load_dataset(args.data_dir, image_size, 'verification')
+    if 'YouTubeFaces' in args.data_dir:
+        print('Loading \'YouTubeFaces\' dataset...')
+        dataset = Loader_YouTubeFaces().load_dataset(args.data_dir, image_size, 'verification')
         ver_list.append(dataset)
-        ver_name_list.append('YouTubeFaces_TINY')
+        ver_name_list.append('YouTubeFaces')
 
 
     # Do verification

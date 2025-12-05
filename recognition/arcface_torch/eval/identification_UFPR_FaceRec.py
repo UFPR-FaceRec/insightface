@@ -303,7 +303,7 @@ if __name__ == '__main__':
         print('Loading \'YouTubeFaces\' dataset...')
         dataset = Loader_YouTubeFaces().load_dataset(args.data_dir, image_size, 'identification')
         ver_list.append(dataset)
-        ver_name_list.append('YouTubeFaces_TINY')
+        ver_name_list.append('YouTubeFaces')
 
 
     # Do verification
