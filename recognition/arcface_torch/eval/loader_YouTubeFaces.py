@@ -157,7 +157,7 @@ class Loader_YouTubeFaces:
 
             # Load gallery images 
             data_gallery   = torch.empty(len(dict_paths_gallery), 3, image_size[0], image_size[1])
-            labels_gallery = torch.empty(len(dict_paths_gallery), 1)
+            true_labels_gallery = torch.empty(len(dict_paths_gallery), 1)
             for idx_subj, (subj_name, subj_label) in enumerate(zip(subjs_list, subjs_labels)):
                 print(f"{idx_subj}/{len(subjs_list)} - Loading gallery imgs \'{subj_name}\'                ", end="\r")
                 img = cv2.imread(dict_paths_gallery[subj_name][0][0])
@@ -165,12 +165,12 @@ class Loader_YouTubeFaces:
                 img = mx.nd.array(img)
                 img = nd.transpose(img, axes=(2, 0, 1))
                 data_gallery[idx_subj][:] = torch.from_numpy(img.asnumpy())
-                labels_gallery[idx_subj]  = subj_label
+                true_labels_gallery[idx_subj]  = subj_label
             print()
 
             # Load probe images 
             dict_data_probe   = {}
-            dict_labels_probe = {}
+            dict_true_labels_probe = {}
             for idx_subj, (subj_name, subj_label) in enumerate(zip(subjs_list, subjs_labels)):
                 for idx_track_name, track_name in enumerate(list(dict_paths_tracks_probe[subj_name].keys())):
                     data_track_probe     = torch.empty(len(dict_paths_tracks_probe[subj_name][track_name]), 3, image_size[0], image_size[1])
@@ -184,12 +184,13 @@ class Loader_YouTubeFaces:
                         data_track_probe[idx_img_path][:]  = torch.from_numpy(img.asnumpy())
                         labels_track_gallery[idx_img_path] = subj_label
                     dict_data_probe[f"{subj_name}_{track_name}"] = data_track_probe
-                    dict_labels_probe[f"{subj_name}_{track_name}"] = labels_track_gallery
+                    dict_true_labels_probe[f"{subj_name}_{track_name}"] = labels_track_gallery
             print()
 
-            # print('dict_data_probe.keys():', dict_data_probe.keys())
-            # for key in dict_data_probe.keys():
-            #     # print(f'dict_data_probe[{key}]:', dict_data_probe[key])
-            #     print(f'dict_data_probe[{key}].shape:', dict_data_probe[key].shape)
-            # sys.exit(0)
-            return data_gallery, labels_gallery, dict_data_probe, dict_labels_probe
+            dataset = {
+                "data_gallery":           data_gallery,
+                "true_labels_gallery":    true_labels_gallery,
+                "dict_data_probe":        dict_data_probe,
+                "dict_true_labels_probe": dict_true_labels_probe
+            }
+            return dataset

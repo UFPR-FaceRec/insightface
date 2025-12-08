@@ -1,4 +1,3 @@
-import datetime
 import os
 import sys
 import pickle
@@ -6,6 +5,8 @@ import argparse
 from PIL import Image
 import torch
 import sklearn
+import time
+import datetime
 
 import mxnet as mx
 import numpy as np
@@ -23,7 +24,7 @@ from eval.loader_YouTubeFaces import Loader_YouTubeFaces
 
 
 def parse_arguments():
-    parser = argparse.ArgumentParser(description='do verification')
+    parser = argparse.ArgumentParser(description='do identification')
     parser.add_argument('--data-dir', default='../examples/YouTubeFaces_TINY/aligned_images_DB_DETECTED_FACES_RETINAFACE_scales=[1.0]_nms=0.4/imgs', help='')
     parser.add_argument('--network', default='r100', type=str, help='')
     parser.add_argument('--model', default='../trained_models/ms1mv3_arcface_r100_fp16/backbone.pth', help='path to load model.')
@@ -45,6 +46,18 @@ class LFold:
             return self.k_fold.split(indices)
         else:
             return [(indices, indices)]
+
+
+def read_object_from_pickle(path):
+    with open(path, 'rb') as fid:
+        any_obj = pickle.load(fid)
+    return any_obj
+
+
+def write_object_to_pickle(path, any_obj):
+    with open(path, 'wb') as fid:
+        # pickle.dump(any_obj, fid)
+        pickle.dump(any_obj, fid, protocol=pickle.HIGHEST_PROTOCOL)   # allows file bigger than 4GB
 
 
 def calculate_roc(thresholds,
@@ -242,28 +255,33 @@ def compute_embeddings(data, backbone, batch_size):
 
 
 @torch.no_grad()
-def test_identification(data_set, backbone, batch_size, nfolds=10):
+def test_identification(args, data_set, backbone, batch_size):
     print('testing identification...')
-    data_gallery           = data_set[0]
-    true_labels_gallery    = data_set[1]
-    dict_data_probe        = data_set[2]
-    dict_true_labels_probe = data_set[3]
+    data_gallery           = data_set["data_gallery"]
+    true_labels_gallery    = data_set["true_labels_gallery"]
+    dict_data_probe        = data_set["dict_data_probe"]
+    dict_true_labels_probe = data_set["dict_true_labels_probe"]
 
+    print('computing gallery embeddings...')
     embeddings_gallery = compute_embeddings(data_gallery, backbone, batch_size)
     embeddings_gallery = sklearn.preprocessing.normalize(embeddings_gallery)
 
     dict_embeddings_probe = {}
-    for subj_track in list(dict_data_probe.keys()):
+    for idx_subj, subj_track in enumerate(list(dict_data_probe.keys())):
+        print(f'{idx_subj}/{len(dict_data_probe.keys())} - computing tracks probe embeddings...', end='\r')
         embeddings_probe = compute_embeddings(dict_data_probe[subj_track], backbone, batch_size)
         dict_embeddings_probe[subj_track] = embeddings_probe
+    print()
 
     dict_similarities_probe = {}
     dict_pred_labels_probe = {}
-    for subj_track in list(dict_data_probe.keys()):
+    for idx_subj_track, subj_track in enumerate(list(dict_data_probe.keys())):
+        print(f'{idx_subj_track}/{len(dict_data_probe.keys())} - computing tracks similarities to gallery...', end='\r')
         similarities_probe = compute_similarities(dict_embeddings_probe[subj_track], embeddings_gallery)
         dict_similarities_probe[subj_track] = similarities_probe
         track_pred_labels = np.argmax(similarities_probe, axis=1)
         dict_pred_labels_probe[subj_track] = track_pred_labels
+    print()
     
     acc_rank1_major_voting = evaluate_identification_majority_voting(dict_pred_labels_probe, dict_true_labels_probe)
     acc_rank1_indiv_samples = evaluate_identification_indiv_samples(dict_pred_labels_probe, dict_true_labels_probe)
@@ -274,8 +292,8 @@ def test_identification(data_set, backbone, batch_size, nfolds=10):
 
 
 if __name__ == '__main__':
+    start_time = time.time()
     args = parse_arguments()
-
 
     # Load pytorch model
     assert os.path.isfile(args.model), f"Error, no such model file: \'{args.model}\'"
@@ -292,7 +310,6 @@ if __name__ == '__main__':
     diff = time_now - time0
     print('model loading time', diff.total_seconds(), 'seconds')
 
-
     # Load dataset
     assert os.path.exists(args.data_dir), f"Error, no such dataset dir: \'{args.data_dir}\'"
     ver_list = []
@@ -301,7 +318,7 @@ if __name__ == '__main__':
     print('image_size', image_size)
     if 'YouTubeFaces' in args.data_dir:
         print('Loading \'YouTubeFaces\' dataset...')
-        dataset = Loader_YouTubeFaces().load_dataset(args.data_dir, image_size, 'identification')
+        dataset = Loader_YouTubeFaces().load_dataset(args.data_dir, image_size, 'identification')            
         ver_list.append(dataset)
         ver_name_list.append('YouTubeFaces')
 
@@ -310,7 +327,9 @@ if __name__ == '__main__':
     for i in range(len(ver_list)):
         results = []
         for model in nets:
-            acc_rank1_major_voting, acc_rank1_indiv_samples = test_identification(ver_list[i], model, args.batch_size, args.nfolds)
+            acc_rank1_major_voting, acc_rank1_indiv_samples = test_identification(args, ver_list[i], model, args.batch_size)
             print('[%s] Accuracy-Majority-Voting-Rank1: %1.5f' % (ver_name_list[i], acc_rank1_major_voting))
             print('[%s] Accuracy-Individ-Samples-Rank1: %1.5f' % (ver_name_list[i], acc_rank1_indiv_samples))
 
+    total_exec_time = time.time() - start_time
+    print(f"    Total execution time: {total_exec_time:.2f} sec    {total_exec_time/60:.2f} min    {total_exec_time/3600:.2f} hour")
