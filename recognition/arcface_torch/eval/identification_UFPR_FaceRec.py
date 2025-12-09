@@ -1,3 +1,6 @@
+# export CUDA_VISIBLE_DEVICES=0; python identification_UFPR_FaceRec.py --network r100 --model ../trained_models/ms1mv3_arcface_r100_fp16/backbone.pth --data-dir ../examples/YouTubeFaces_TINY/aligned_images_DB_DETECTED_FACES_RETINAFACE_scales=[1.0]_nms=0.4/imgs
+# export CUDA_VISIBLE_DEVICES=0; python identification_UFPR_FaceRec.py --network r100 --model ../trained_models/ms1mv3_arcface_r100_fp16/backbone.pth --data-dir /hddevice/nobackup3/bjgbiesseck/datasets/face_recognition/YouTubeFaces/aligned_images_DB_DETECTED_FACES_RETINAFACE_scales=[1.0]_nms=0.4_IDENTIFICATION
+
 import os
 import sys
 import pickle
@@ -185,41 +188,35 @@ def calculate_val_far(threshold, dist, actual_issame):
     return val, far
 
 
-def evaluate_identification_majority_voting(dict_pred_labels_probe, dict_true_labels_probe):
-    num_tracks = int(len(dict_pred_labels_probe))
+def evaluate_identification_majority_voting(args, dict_pred_labels_probe, dict_true_labels_probe, dict_paths_gallery, dict_paths_tracks_probe):
+    num_tracks = sum([len(dict_pred_labels_probe[subj]) for subj in list(dict_pred_labels_probe.keys())])
     num_hit_rank1, num_miss_rank1 = 0, 0
-    for subj_track in list(dict_pred_labels_probe.keys()):
-        counts_pred_label = np.bincount(dict_pred_labels_probe[subj_track])
-        majority_voting_track_pred_label = np.argmax(counts_pred_label)
+    for idx_subj, subj in enumerate(list(dict_pred_labels_probe.keys())):
+        for subj_track in list(dict_pred_labels_probe[subj].keys()):
+            counts_pred_label = np.bincount(dict_pred_labels_probe[subj][subj_track])
+            majority_voting_track_pred_label = np.argmax(counts_pred_label)
 
-        counts_true_label = np.bincount(np.squeeze(dict_true_labels_probe[subj_track]))
-        majority_voting_track_true_label = np.argmax(counts_true_label)
-        
-        if majority_voting_track_pred_label == majority_voting_track_true_label:
-            num_hit_rank1 += 1
-        else:
-            num_miss_rank1 += 1
+            counts_true_label = np.bincount(np.squeeze(dict_true_labels_probe[subj][subj_track]))
+            majority_voting_track_true_label = np.argmax(counts_true_label)
+            
+            if majority_voting_track_pred_label == majority_voting_track_true_label:
+                num_hit_rank1 += 1
+            else:
+                num_miss_rank1 += 1
   
     acc_rank1 = num_hit_rank1 / num_tracks
     return acc_rank1
 
 
-def evaluate_identification_indiv_samples(dict_pred_labels_probe, dict_true_labels_probe):
-    num_frames = sum([len(dict_pred_labels_probe[subj_track]) for subj_track in dict_pred_labels_probe.keys()])
+def evaluate_identification_indiv_samples(args, dict_pred_labels_probe, dict_true_labels_probe, dict_paths_gallery, dict_paths_tracks_probe):
+    num_frames = sum([sum([len(dict_pred_labels_probe[subj][track]) for track in dict_pred_labels_probe[subj]]) for subj in dict_pred_labels_probe.keys()])
     num_hit_rank1, num_miss_rank1 = 0, 0
-    for subj_track in list(dict_pred_labels_probe.keys()):
-        # print(f'dict_pred_labels_probe[{subj_track}].shape:', dict_pred_labels_probe[subj_track].shape)
-        # print(f'np.squeeze(dict_true_labels_probe[{subj_track}].shape:', np.squeeze(dict_true_labels_probe[subj_track]).shape)
-        comparison_bool = dict_pred_labels_probe[subj_track] == np.squeeze(dict_true_labels_probe[subj_track].detach().cpu().numpy())
-        # print('comparison_bool:', comparison_bool)
-        # print('sum(comparison_bool):', sum(comparison_bool))
-        num_hit_rank1  += sum(comparison_bool)
-        num_miss_rank1 += sum(~comparison_bool)
-        # print('num_hit_rank1:', num_hit_rank1)
-        # print('num_miss_rank1:', num_miss_rank1)
-        # sys.exit(0)
-            
-  
+    for idx_subj, subj in enumerate(list(dict_pred_labels_probe.keys())):
+        for subj_track in list(dict_pred_labels_probe[subj].keys()):
+            comparison_bool = dict_pred_labels_probe[subj][subj_track] == np.squeeze(dict_true_labels_probe[subj][subj_track].detach().cpu().numpy())
+            num_hit_rank1  += sum(comparison_bool)
+            num_miss_rank1 += sum(~comparison_bool)
+
     acc_indiv_samples_rank1 = num_hit_rank1 / num_frames
     return acc_indiv_samples_rank1
 
@@ -257,34 +254,41 @@ def compute_embeddings(data, backbone, batch_size):
 @torch.no_grad()
 def test_identification(args, data_set, backbone, batch_size):
     print('testing identification...')
-    data_gallery           = data_set["data_gallery"]
-    true_labels_gallery    = data_set["true_labels_gallery"]
-    dict_data_probe        = data_set["dict_data_probe"]
-    dict_true_labels_probe = data_set["dict_true_labels_probe"]
+    dict_paths_gallery      = data_set["dict_paths_gallery"]
+    data_gallery            = data_set["data_gallery"]
+    true_labels_gallery     = data_set["true_labels_gallery"]
+    dict_paths_tracks_probe = data_set["dict_paths_tracks_probe"]
+    dict_data_probe         = data_set["dict_data_probe"]
+    dict_true_labels_probe  = data_set["dict_true_labels_probe"]
 
     print('computing gallery embeddings...')
     embeddings_gallery = compute_embeddings(data_gallery, backbone, batch_size)
     embeddings_gallery = sklearn.preprocessing.normalize(embeddings_gallery)
 
     dict_embeddings_probe = {}
-    for idx_subj, subj_track in enumerate(list(dict_data_probe.keys())):
-        print(f'{idx_subj}/{len(dict_data_probe.keys())} - computing tracks probe embeddings...', end='\r')
-        embeddings_probe = compute_embeddings(dict_data_probe[subj_track], backbone, batch_size)
-        dict_embeddings_probe[subj_track] = embeddings_probe
+    for idx_subj, subj_name in enumerate(list(dict_data_probe.keys())):
+        dict_embeddings_probe[subj_name] = {}
+        for idx_track, track_name in enumerate(list(dict_data_probe[subj_name].keys())):
+            print(f'{idx_subj}/{len(dict_data_probe.keys())} {idx_track}/{len(dict_data_probe[subj_name].keys())} - computing tracks probe embeddings...', end='\r')
+            embeddings_probe = compute_embeddings(dict_data_probe[subj_name][track_name], backbone, batch_size)
+            dict_embeddings_probe[subj_name][track_name] = embeddings_probe
     print()
 
     dict_similarities_probe = {}
     dict_pred_labels_probe = {}
-    for idx_subj_track, subj_track in enumerate(list(dict_data_probe.keys())):
-        print(f'{idx_subj_track}/{len(dict_data_probe.keys())} - computing tracks similarities to gallery...', end='\r')
-        similarities_probe = compute_similarities(dict_embeddings_probe[subj_track], embeddings_gallery)
-        dict_similarities_probe[subj_track] = similarities_probe
-        track_pred_labels = np.argmax(similarities_probe, axis=1)
-        dict_pred_labels_probe[subj_track] = track_pred_labels
+    for idx_subj, subj_name in enumerate(list(dict_data_probe.keys())):
+        dict_similarities_probe[subj_name] = {}
+        dict_pred_labels_probe[subj_name]  = {}
+        for idx_track, track_name in enumerate(list(dict_data_probe[subj_name].keys())):
+            print(f'{idx_subj}/{len(dict_data_probe.keys())} {idx_track}/{len(dict_data_probe[subj_name].keys())} - computing tracks similarities to gallery...', end='\r')
+            similarities_probe = compute_similarities(dict_embeddings_probe[subj_name][track_name], embeddings_gallery)
+            dict_similarities_probe[subj_name][track_name] = similarities_probe
+            track_pred_labels = np.argmax(similarities_probe, axis=1)
+            dict_pred_labels_probe[subj_name][track_name] = track_pred_labels
     print()
     
-    acc_rank1_major_voting = evaluate_identification_majority_voting(dict_pred_labels_probe, dict_true_labels_probe)
-    acc_rank1_indiv_samples = evaluate_identification_indiv_samples(dict_pred_labels_probe, dict_true_labels_probe)
+    acc_rank1_major_voting = evaluate_identification_majority_voting(args, dict_pred_labels_probe, dict_true_labels_probe, dict_paths_gallery, dict_paths_tracks_probe)
+    acc_rank1_indiv_samples = evaluate_identification_indiv_samples(args, dict_pred_labels_probe, dict_true_labels_probe, dict_paths_gallery, dict_paths_tracks_probe)
     return acc_rank1_major_voting, acc_rank1_indiv_samples
 
 
@@ -316,9 +320,15 @@ if __name__ == '__main__':
     ver_name_list = []
     image_size = [112, 112]
     print('image_size', image_size)
-    if 'YouTubeFaces' in args.data_dir:
+    
+    if 'YouTubeFaces_TINY' in args.data_dir:
+        print('Loading \'YouTubeFaces_TINY\' dataset...')
+        dataset = Loader_YouTubeFaces().load_dataset(args.data_dir, image_size, 'identification')
+        ver_list.append(dataset)
+        ver_name_list.append('YouTubeFaces_TINY')
+    elif 'YouTubeFaces' in args.data_dir:
         print('Loading \'YouTubeFaces\' dataset...')
-        dataset = Loader_YouTubeFaces().load_dataset(args.data_dir, image_size, 'identification')            
+        dataset = Loader_YouTubeFaces().load_dataset(args.data_dir, image_size, 'identification')
         ver_list.append(dataset)
         ver_name_list.append('YouTubeFaces')
 

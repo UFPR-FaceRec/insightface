@@ -156,8 +156,8 @@ class Loader_YouTubeFaces:
                         dict_paths_tracks_probe[subj_name][track_name][idx_img_path] = [img_path, subj_label]
 
             # Load gallery images 
-            data_gallery   = torch.empty(len(dict_paths_gallery), 3, image_size[0], image_size[1])
-            true_labels_gallery = torch.empty(len(dict_paths_gallery), 1)
+            data_gallery   = torch.zeros(len(dict_paths_gallery), 3, image_size[0], image_size[1])
+            true_labels_gallery = torch.zeros(len(dict_paths_gallery), 1)
             for idx_subj, (subj_name, subj_label) in enumerate(zip(subjs_list, subjs_labels)):
                 print(f"{idx_subj}/{len(subjs_list)} - Loading gallery imgs \'{subj_name}\'                ", end="\r")
                 img = cv2.imread(dict_paths_gallery[subj_name][0][0])
@@ -169,12 +169,14 @@ class Loader_YouTubeFaces:
             print()
 
             # Load probe images 
-            dict_data_probe   = {}
+            dict_data_probe        = {}
             dict_true_labels_probe = {}
             for idx_subj, (subj_name, subj_label) in enumerate(zip(subjs_list, subjs_labels)):
+                dict_data_probe[subj_name]        = {}
+                dict_true_labels_probe[subj_name] = {}
                 for idx_track_name, track_name in enumerate(list(dict_paths_tracks_probe[subj_name].keys())):
-                    data_track_probe     = torch.empty(len(dict_paths_tracks_probe[subj_name][track_name]), 3, image_size[0], image_size[1])
-                    labels_track_gallery = torch.empty(len(dict_paths_tracks_probe[subj_name][track_name]), 1)
+                    data_track_probe     = torch.zeros(len(dict_paths_tracks_probe[subj_name][track_name]), 3, image_size[0], image_size[1])
+                    labels_track_gallery = torch.zeros(len(dict_paths_tracks_probe[subj_name][track_name]), 1)
                     for idx_img_path, img_path in enumerate(dict_paths_tracks_probe[subj_name][track_name]):
                         print(f"{idx_subj}/{len(subjs_list)} - Loading probe imgs \'{subj_name}\' - track {track_name} - img {idx_img_path}/{len(dict_paths_tracks_probe[subj_name][track_name])}                     ", end="\r")
                         img = cv2.imread(dict_paths_tracks_probe[subj_name][track_name][idx_img_path][0])
@@ -183,14 +185,16 @@ class Loader_YouTubeFaces:
                         img = nd.transpose(img, axes=(2, 0, 1))
                         data_track_probe[idx_img_path][:]  = torch.from_numpy(img.asnumpy())
                         labels_track_gallery[idx_img_path] = subj_label
-                    dict_data_probe[f"{subj_name}_{track_name}"] = data_track_probe
-                    dict_true_labels_probe[f"{subj_name}_{track_name}"] = labels_track_gallery
+                    dict_data_probe[subj_name][track_name] = data_track_probe
+                    dict_true_labels_probe[subj_name][track_name] = labels_track_gallery
             print()
 
             dataset = {
-                "data_gallery":           data_gallery,
-                "true_labels_gallery":    true_labels_gallery,
-                "dict_data_probe":        dict_data_probe,
-                "dict_true_labels_probe": dict_true_labels_probe
+                "dict_paths_gallery":      dict_paths_gallery,
+                "data_gallery":            data_gallery,
+                "true_labels_gallery":     true_labels_gallery,
+                "dict_paths_tracks_probe": dict_paths_tracks_probe,
+                "dict_data_probe":         dict_data_probe,
+                "dict_true_labels_probe":  dict_true_labels_probe
             }
             return dataset
