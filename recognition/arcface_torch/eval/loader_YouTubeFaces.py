@@ -190,6 +190,8 @@ class Loader_YouTubeFaces:
             print()
 
             dataset = {
+                "subjs_list":              subjs_list,
+                "subjs_labels":            subjs_labels, 
                 "dict_paths_gallery":      dict_paths_gallery,
                 "data_gallery":            data_gallery,
                 "true_labels_gallery":     true_labels_gallery,

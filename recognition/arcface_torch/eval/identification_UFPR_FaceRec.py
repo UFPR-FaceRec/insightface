@@ -6,6 +6,7 @@ import sys
 import pickle
 import argparse
 from PIL import Image
+import cv2
 import torch
 import sklearn
 import time
@@ -19,6 +20,7 @@ from mxnet import ndarray as nd
 from scipy import interpolate
 from sklearn.decomposition import PCA
 from sklearn.model_selection import KFold
+import matplotlib.pyplot as plt
 
 sys.path.insert(0, "../")
 from backbones import get_model
@@ -34,6 +36,9 @@ def parse_arguments():
     parser.add_argument('--gpu', default=0, type=int, help='gpu id')
     parser.add_argument('--batch-size', default=32, type=int, help='')
     parser.add_argument('--nfolds', default=10, type=int, help='')
+    parser.add_argument('--dataset-name', default='', type=str, help='')
+    parser.add_argument("--save-best-worst-samples", action="store_true")
+
     args = parser.parse_args()
     return args
 
@@ -188,7 +193,57 @@ def calculate_val_far(threshold, dist, actual_issame):
     return val, far
 
 
-def evaluate_identification_majority_voting(args, dict_pred_labels_probe, dict_true_labels_probe, dict_paths_gallery, dict_paths_tracks_probe):
+def save_imgs_track(paths_imgs_track_probe, paths_imgs_true_gallery, paths_imgs_pred_gallery, true_subj_name, pred_subj_name, title, path_figure):
+    def load_img(path_img):
+        img = cv2.imread(path_img)
+        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        return img
+    
+    N_probe = 10
+
+    probe_images       = [load_img(path_img[0]) for path_img in paths_imgs_track_probe[:N_probe]]
+    true_gallery_image = [load_img(path_img[0]) for path_img in paths_imgs_true_gallery]
+    pred_gallery_image = [load_img(path_img[0]) for path_img in paths_imgs_pred_gallery]
+    
+    fig_cols = max(N_probe, 3)
+    fig, axes = plt.subplots(
+        nrows=3, 
+        ncols=fig_cols, 
+        figsize=(3 * fig_cols, 8) 
+    )
+    fig.subplots_adjust(left=0.10) 
+
+    row_titles = ["Track Frames", "True Gallery", "Pred Gallery"]
+    
+    for i in range(fig_cols):
+        ax = axes[0, i]
+        if i < N_probe:
+            ax.imshow(probe_images[i])
+            ax.set_title(f"Frame {i+1}", size=14)
+        else:
+            ax.set_visible(False)
+    axes[0, 0].set_ylabel(row_titles[0], rotation=90, size=18)
+
+    axes[1, 0].imshow(true_gallery_image[0])
+    axes[1, 0].set_title(true_subj_name, size=14)
+    axes[1, 0].set_ylabel(row_titles[1], rotation=90, size=18)
+    for i in range(1, fig_cols):
+        axes[1, i].set_visible(False)
+
+    axes[2, 0].imshow(pred_gallery_image[0])
+    axes[2, 0].set_title(pred_subj_name, size=14, color='blue')
+    axes[2, 0].set_ylabel(row_titles[2], rotation=90, size=18)
+    for i in range(1, fig_cols):
+        axes[2, i].set_visible(False)
+
+    fig.suptitle(title, fontsize=22)
+    plt.tight_layout(rect=[0.1, 0, 1, 1]) # Adjust tight_layout to account for the new left margin
+    plt.savefig(path_figure)
+    plt.close(fig) 
+
+
+
+def evaluate_identification_majority_voting(args, dict_pred_labels_probe, dict_true_labels_probe, dict_paths_gallery, dict_paths_tracks_probe, subjs_list):
     num_tracks = sum([len(dict_pred_labels_probe[subj]) for subj in list(dict_pred_labels_probe.keys())])
     num_hit_rank1, num_miss_rank1 = 0, 0
     for idx_subj, subj in enumerate(list(dict_pred_labels_probe.keys())):
@@ -201,14 +256,33 @@ def evaluate_identification_majority_voting(args, dict_pred_labels_probe, dict_t
             
             if majority_voting_track_pred_label == majority_voting_track_true_label:
                 num_hit_rank1 += 1
+
+                if args.save_best_worst_samples:
+                    hits_tracks_path = os.path.join(os.path.dirname(args.model), args.dataset_name, 'tracks/hits')
+                    os.makedirs(hits_tracks_path, exist_ok=True)
+                    title = f'Identification - Dataset \'{args.dataset_name}\' - Subj \'{subj}\' - Track \'{subj_track}\''
+                    path_figure = os.path.join(hits_tracks_path, f"{subj}_{subj_track}.png")
+                    save_imgs_track(dict_paths_tracks_probe[subj][subj_track], dict_paths_gallery[subjs_list[majority_voting_track_true_label]], dict_paths_gallery[subjs_list[majority_voting_track_pred_label]],
+                                    subjs_list[majority_voting_track_true_label], subjs_list[majority_voting_track_pred_label],
+                                    title, path_figure)
+
             else:
                 num_miss_rank1 += 1
+
+                if args.save_best_worst_samples:
+                    miss_tracks_path = os.path.join(os.path.dirname(args.model), args.dataset_name, 'tracks/miss')
+                    os.makedirs(miss_tracks_path, exist_ok=True)
+                    title = f'Identification - Dataset \'{args.dataset_name}\' - Subj \'{subj}\' - Track \'{subj_track}\''
+                    path_figure = os.path.join(miss_tracks_path, f"{subj}_{subj_track}.png")
+                    save_imgs_track(dict_paths_tracks_probe[subj][subj_track], dict_paths_gallery[subjs_list[majority_voting_track_true_label]], dict_paths_gallery[subjs_list[majority_voting_track_pred_label]],
+                                    subjs_list[majority_voting_track_true_label], subjs_list[majority_voting_track_pred_label],
+                                    title, path_figure)
   
     acc_rank1 = num_hit_rank1 / num_tracks
     return acc_rank1
 
 
-def evaluate_identification_indiv_samples(args, dict_pred_labels_probe, dict_true_labels_probe, dict_paths_gallery, dict_paths_tracks_probe):
+def evaluate_identification_indiv_samples(args, dict_pred_labels_probe, dict_true_labels_probe, dict_paths_gallery, dict_paths_tracks_probe, subjs_list):
     num_frames = sum([sum([len(dict_pred_labels_probe[subj][track]) for track in dict_pred_labels_probe[subj]]) for subj in dict_pred_labels_probe.keys()])
     num_hit_rank1, num_miss_rank1 = 0, 0
     for idx_subj, subj in enumerate(list(dict_pred_labels_probe.keys())):
@@ -254,6 +328,8 @@ def compute_embeddings(data, backbone, batch_size):
 @torch.no_grad()
 def test_identification(args, data_set, backbone, batch_size):
     print('testing identification...')
+    subjs_list              = data_set["subjs_list"]
+    subjs_labels            = data_set["subjs_labels"]
     dict_paths_gallery      = data_set["dict_paths_gallery"]
     data_gallery            = data_set["data_gallery"]
     true_labels_gallery     = data_set["true_labels_gallery"]
@@ -287,8 +363,8 @@ def test_identification(args, data_set, backbone, batch_size):
             dict_pred_labels_probe[subj_name][track_name] = track_pred_labels
     print()
     
-    acc_rank1_major_voting = evaluate_identification_majority_voting(args, dict_pred_labels_probe, dict_true_labels_probe, dict_paths_gallery, dict_paths_tracks_probe)
-    acc_rank1_indiv_samples = evaluate_identification_indiv_samples(args, dict_pred_labels_probe, dict_true_labels_probe, dict_paths_gallery, dict_paths_tracks_probe)
+    acc_rank1_major_voting = evaluate_identification_majority_voting(args, dict_pred_labels_probe, dict_true_labels_probe, dict_paths_gallery, dict_paths_tracks_probe, subjs_list)
+    acc_rank1_indiv_samples = evaluate_identification_indiv_samples(args, dict_pred_labels_probe, dict_true_labels_probe, dict_paths_gallery, dict_paths_tracks_probe, subjs_list)
     return acc_rank1_major_voting, acc_rank1_indiv_samples
 
 
@@ -322,15 +398,17 @@ if __name__ == '__main__':
     print('image_size', image_size)
     
     if 'YouTubeFaces_TINY' in args.data_dir:
-        print('Loading \'YouTubeFaces_TINY\' dataset...')
+        args.dataset_name = 'YouTubeFaces_TINY'
+        print(f'Loading \'{args.dataset_name}\' dataset...')
         dataset = Loader_YouTubeFaces().load_dataset(args.data_dir, image_size, 'identification')
         ver_list.append(dataset)
-        ver_name_list.append('YouTubeFaces_TINY')
+        ver_name_list.append(args.dataset_name)
     elif 'YouTubeFaces' in args.data_dir:
-        print('Loading \'YouTubeFaces\' dataset...')
+        args.dataset_name = 'YouTubeFaces'
+        print(f'Loading \'{args.dataset_name}\' dataset...')
         dataset = Loader_YouTubeFaces().load_dataset(args.data_dir, image_size, 'identification')
         ver_list.append(dataset)
-        ver_name_list.append('YouTubeFaces')
+        ver_name_list.append(args.dataset_name)
 
 
     # Do verification
