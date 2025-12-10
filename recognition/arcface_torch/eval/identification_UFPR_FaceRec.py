@@ -247,7 +247,7 @@ def evaluate_identification_majority_voting(args, dict_pred_labels_probe, dict_t
     num_tracks = sum([len(dict_pred_labels_probe[subj]) for subj in list(dict_pred_labels_probe.keys())])
     num_hit_rank1, num_miss_rank1 = 0, 0
     for idx_subj, subj in enumerate(list(dict_pred_labels_probe.keys())):
-        for subj_track in list(dict_pred_labels_probe[subj].keys()):
+        for idx_track, subj_track in enumerate(list(dict_pred_labels_probe[subj].keys())):
             counts_pred_label = np.bincount(dict_pred_labels_probe[subj][subj_track])
             majority_voting_track_pred_label = np.argmax(counts_pred_label)
 
@@ -256,27 +256,21 @@ def evaluate_identification_majority_voting(args, dict_pred_labels_probe, dict_t
             
             if majority_voting_track_pred_label == majority_voting_track_true_label:
                 num_hit_rank1 += 1
-
-                if args.save_best_worst_samples:
-                    hits_tracks_path = os.path.join(os.path.dirname(args.model), args.dataset_name, 'tracks/hits')
-                    os.makedirs(hits_tracks_path, exist_ok=True)
-                    title = f'Identification - Dataset \'{args.dataset_name}\' - Subj \'{subj}\' - Track \'{subj_track}\''
-                    path_figure = os.path.join(hits_tracks_path, f"{subj}_{subj_track}.png")
-                    save_imgs_track(dict_paths_tracks_probe[subj][subj_track], dict_paths_gallery[subjs_list[majority_voting_track_true_label]], dict_paths_gallery[subjs_list[majority_voting_track_pred_label]],
-                                    subjs_list[majority_voting_track_true_label], subjs_list[majority_voting_track_pred_label],
-                                    title, path_figure)
-
+                plot_track_dir = 'tracks/hits'
             else:
                 num_miss_rank1 += 1
+                plot_track_dir = 'tracks/miss'
 
-                if args.save_best_worst_samples:
-                    miss_tracks_path = os.path.join(os.path.dirname(args.model), args.dataset_name, 'tracks/miss')
-                    os.makedirs(miss_tracks_path, exist_ok=True)
-                    title = f'Identification - Dataset \'{args.dataset_name}\' - Subj \'{subj}\' - Track \'{subj_track}\''
-                    path_figure = os.path.join(miss_tracks_path, f"{subj}_{subj_track}.png")
-                    save_imgs_track(dict_paths_tracks_probe[subj][subj_track], dict_paths_gallery[subjs_list[majority_voting_track_true_label]], dict_paths_gallery[subjs_list[majority_voting_track_pred_label]],
-                                    subjs_list[majority_voting_track_true_label], subjs_list[majority_voting_track_pred_label],
-                                    title, path_figure)
+            if args.save_best_worst_samples:
+                plot_tracks_path = os.path.join(os.path.dirname(args.model), args.dataset_name, plot_track_dir)
+                os.makedirs(plot_tracks_path, exist_ok=True)
+                title = f'Identification - Dataset \'{args.dataset_name}\' - Subj \'{subj}\' - Track \'{subj_track}\''
+                path_figure = os.path.join(plot_tracks_path, f"{subj}_{subj_track}.png")
+                print(f'    {idx_subj}/{len(dict_pred_labels_probe)} {idx_track}/{len(dict_pred_labels_probe[subj])} Saving debug figure \'{subj}/{subj_track}\'              ', end='\r')
+                save_imgs_track(dict_paths_tracks_probe[subj][subj_track], dict_paths_gallery[subjs_list[majority_voting_track_true_label]], dict_paths_gallery[subjs_list[majority_voting_track_pred_label]],
+                                subjs_list[majority_voting_track_true_label], subjs_list[majority_voting_track_pred_label],
+                                title, path_figure)
+    print()
   
     acc_rank1 = num_hit_rank1 / num_tracks
     return acc_rank1
