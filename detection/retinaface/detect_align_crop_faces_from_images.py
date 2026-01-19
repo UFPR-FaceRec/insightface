@@ -1,5 +1,5 @@
 # Dataset YouTubeFaces
-# python detect_align_crop_faces_from_images.py --save_crops --align_face --input_path /hddevice/nobackup3/bjgbiesseck/datasets/face_recognition/YouTubeFaces/aligned_images_DB
+# python detect_align_crop_faces_from_images.py --process_only_biggest_face --input_path /hddevice/nobackup3/bjgbiesseck/datasets/face_recognition/YouTubeFaces/aligned_images_DB
 
 import os
 import sys
@@ -26,9 +26,9 @@ def getArgs():
     parser.add_argument('--thresh', type=float, default=0.3, help='threshold for face detection')
     parser.add_argument('--nms', type=float, default=0.4, help='Non-Maximum Suppression')
     parser.add_argument('--scales', type=str, default='[1.0]', help='the scale to resize image before detecting face')
-    parser.add_argument('--save_crops', action='store_true', help='')
+    parser.add_argument('--dont_save_crops', action='store_true', help='')
     parser.add_argument('--process_only_biggest_face', action='store_true', help='')
-    parser.add_argument('--align_face', action='store_true', help='')
+    parser.add_argument('--dont_align_face', action='store_true', help='')
     parser.add_argument('--force_lmk', action='store_true', help='')
     parser.add_argument('--draw_bbox_lmk_save_whole_img', action='store_true', help='')
 
@@ -308,7 +308,7 @@ def align_crop_faces(args):
             points_ = points[bbox_idx, :].reshape((5, 2))
             conf_ = bbox[bbox_idx, 4]
 
-            if args.align_face:
+            if not args.dont_align_face:
                 print(f'Aligning and cropping to size {args.face_size}x{args.face_size} ...')
                 face = face_align.norm_crop(face_img, landmark=points_, image_size=args.face_size)
             else:
@@ -330,7 +330,7 @@ def align_crop_faces(args):
                     print(f'Saving {file_path_bbox_save}')
                     cv2.imwrite(file_path_bbox_save, face_img_copy)
 
-            if args.save_crops:
+            if not args.dont_save_crops:
                 print(f'Saving {output_path_path} ...')
                 cv2.imwrite(output_path_path, face)
 
