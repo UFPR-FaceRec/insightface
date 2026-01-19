@@ -14,6 +14,8 @@ import cv2
 from retinaface import RetinaFace
 from insightface.utils import face_align
 import rawpy
+from collections import defaultdict
+import csv
 
 
 def getArgs():
@@ -31,6 +33,7 @@ def getArgs():
     parser.add_argument('--dont_align_face', action='store_true', help='')
     parser.add_argument('--force_lmk', action='store_true', help='')
     parser.add_argument('--draw_bbox_lmk_save_whole_img', action='store_true', help='')
+    parser.add_argument('--use_landmarks_from_txt_files', action='store_true', help='')
 
     parser.add_argument('--str_begin', default='', type=str, help='Substring to find and start processing')
     parser.add_argument('--str_end', default='', type=str, help='Substring to find and stop processing')
@@ -161,7 +164,6 @@ def save_detections_txt(detections, saving_path):
     with open(saving_path, "w") as f:
         f.write("FILE,DETECTION_SCORE,BB_X,BB_Y,BB_WIDTH,BB_HEIGHT,REYE_X,REYE_Y,LEYE_X,LEYE_Y,NOSE_X,NOSE_Y,RMOUTH_X,RMOUTH_Y,LMOUTH_X,LMOUTH_Y\n")
         for image in sorted(detections.keys()):
-            # for (score,bbox,lmark) in detections[image]:
             for (scores,bboxes,lmarks) in detections[image]:
                 for bbox_idx in range(len(bboxes)):
                     score = scores[bbox_idx]
@@ -175,6 +177,48 @@ def save_detections_txt(detections, saving_path):
                                                                                         lmark[2][0],lmark[2][1],
                                                                                         lmark[3][0],lmark[3][1],
                                                                                         lmark[4][0],lmark[4][1]))
+
+
+# based on https://github.com/AIML-IfI/uccs-facerec-challenge/blob/main/facerec/face_detection.py
+def load_detections_txt(txt_path):
+    detections = defaultdict(list)
+    with open(txt_path, "r") as f:
+        reader = csv.DictReader(f)
+        tmp_scores = defaultdict(list)
+        tmp_bboxes = defaultdict(list)
+        tmp_lmarks = defaultdict(list)
+
+        for row in reader:
+            image = row["FILE"]
+
+            score = float(row["DETECTION_SCORE"])
+
+            x = float(row["BB_X"])
+            y = float(row["BB_Y"])
+            w = float(row["BB_WIDTH"])
+            h = float(row["BB_HEIGHT"])
+            bbox = [x, y, x + w, y + h, score]
+
+            lmarks = [
+                [float(row["REYE_X"]),   float(row["REYE_Y"])],
+                [float(row["LEYE_X"]),   float(row["LEYE_Y"])],
+                [float(row["NOSE_X"]),   float(row["NOSE_Y"])],
+                [float(row["RMOUTH_X"]), float(row["RMOUTH_Y"])],
+                [float(row["LMOUTH_X"]), float(row["LMOUTH_Y"])],
+            ]
+
+            tmp_scores[image].append(score)
+            tmp_bboxes[image].append(bbox)
+            tmp_lmarks[image].append(lmarks)
+
+        for image in tmp_scores:
+            detections[image].append((
+                tmp_scores[image],
+                np.array(tmp_bboxes[image], dtype=float),
+                np.array(tmp_lmarks[image], dtype=float)
+            ))
+
+    return dict(detections)
 
 
 def get_biggest_bbox(bbox, points):
@@ -259,6 +303,8 @@ def align_crop_faces(args):
     print('end_index_str:', end_index_str)
     print('------------------------\n')
 
+
+    # MAIN LOOP
     img_paths_part = img_paths_part[begin_index_str:end_index_str]
     total_time = 0.0
     for i, input_path_path in enumerate(img_paths_part):
@@ -275,27 +321,40 @@ def align_crop_faces(args):
         else:
             face_img = cv2.imread(input_path_path)
 
-        print(f'Detecting face...')
-        ret = detector.detect(face_img, args.thresh, args.scales, do_flip=False)
 
-        bbox, points = ret
-        if bbox.shape[0] == 0:
-            print(f'NO FACE DETECTED IN IMAGE \'{input_path_path}\'')
-            print(f'Adding path to file \'{path_file_no_face_detected}\' ...')
-            add_string_end_file(path_file_no_face_detected, input_path_path)
-            count_no_find_face += 1
+        output_txt_name = input_path_path.split('/')[-1].replace(os.path.splitext(input_path_path)[1], '.txt')
+        output_dir_txt = os.path.join(output_txt, input_path_path.split('/')[-2])
+        output_txt_path = os.path.join(output_dir_txt, output_txt_name)
+        if args.use_landmarks_from_txt_files and os.path.isfile(output_txt_path):
+            # detections = {img_file_name: [(confidences, bbox, points)]}
+            print(f'Loading detection from file \'{output_txt_path}\'')
+            detections = load_detections_txt(output_txt_path)
+            img_file_name = list(detections.keys())[0]
+            # detections = {img_file_name: [(confidences, bbox, points)]}
+            confidences, bbox, points = detections[img_file_name][0]
+        else:
+            print(f'Detecting face...')
+            ret = detector.detect(face_img, args.thresh, args.scales, do_flip=False)
 
-            if args.force_lmk:
-                print('FORCE LMK')
-                bbox, points = get_generic_bbox_lmk(face_img)
-                count_crop_images -= 1
-            else:
-                elapsed_time = time.time() - start_time
-                print(f'Elapsed time: {elapsed_time} seconds')
-                print('-------------')
-                continue
+            bbox, points = ret
+            if bbox.shape[0] == 0:
+                print(f'NO FACE DETECTED IN IMAGE \'{input_path_path}\'')
+                print(f'Adding path to file \'{path_file_no_face_detected}\' ...')
+                add_string_end_file(path_file_no_face_detected, input_path_path)
+                count_no_find_face += 1
 
-        confidences = [bbox[idx, 4] for idx in range(bbox.shape[0])]
+                if args.force_lmk:
+                    print('FORCE LMK')
+                    bbox, points = get_generic_bbox_lmk(face_img)
+                    count_crop_images -= 1
+                else:
+                    elapsed_time = time.time() - start_time
+                    print(f'Elapsed time: {elapsed_time} seconds')
+                    print('-------------')
+                    continue
+
+            confidences = [bbox[idx, 4] for idx in range(bbox.shape[0])]
+        
         print('Confidences:', confidences)
 
         if args.process_only_biggest_face:
@@ -334,15 +393,19 @@ def align_crop_faces(args):
                 print(f'Saving {output_path_path} ...')
                 cv2.imwrite(output_path_path, face)
 
+
+
         # SAVE DETECTIONS AS TXT FILE
-        output_txt_name = input_path_path.split('/')[-1].replace(os.path.splitext(input_path_path)[1], '.txt')
-        output_dir_txt = os.path.join(output_txt, input_path_path.split('/')[-2])
-        os.makedirs(output_dir_txt, exist_ok=True)
-        output_txt_path = os.path.join(output_dir_txt, output_txt_name)
-        img_file_name = input_path_path.split('/')[-1]
-        detections = {img_file_name: [(confidences, bbox, points)]}
-        print(f'Saving {output_txt_path} ...')
-        save_detections_txt(detections, output_txt_path)
+        if not os.path.isfile(output_txt_path):
+            # output_txt_name = input_path_path.split('/')[-1].replace(os.path.splitext(input_path_path)[1], '.txt')
+            # output_dir_txt = os.path.join(output_txt, input_path_path.split('/')[-2])
+            os.makedirs(output_dir_txt, exist_ok=True)
+            # output_txt_path = os.path.join(output_dir_txt, output_txt_name)
+            img_file_name = input_path_path.split('/')[-1]
+            detections = {img_file_name: [(confidences, bbox, points)]}
+            print(f'Saving {output_txt_path} ...')
+            save_detections_txt(detections, output_txt_path)
+
 
 
         elapsed_time = time.time() - start_time
@@ -357,6 +420,8 @@ def align_crop_faces(args):
         print('-------------')
 
         count_crop_images += 1
+        # sys.exit(0)
+
 
     print('-------------------------------')
     print('Finished')
